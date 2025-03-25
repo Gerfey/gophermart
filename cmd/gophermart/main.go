@@ -49,6 +49,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go services.Orders.ProcessOrdersBackground(ctx)
+	defer cancel()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
