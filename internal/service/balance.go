@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Gerfey/gophermart/internal/errors"
 	"github.com/Gerfey/gophermart/internal/model"
 	"github.com/Gerfey/gophermart/internal/repository"
 )
@@ -34,7 +35,7 @@ func (s *BalanceSvc) GetBalance(ctx context.Context, userID int64) (model.Balanc
 
 func (s *BalanceSvc) Withdraw(ctx context.Context, userID int64, orderNumber string, amount float64) error {
 	if !isValidLuhnNumber(orderNumber) {
-		return fmt.Errorf("номер заказа не соответствует алгоритму Луна")
+		return fmt.Errorf("%w", errors.ErrInvalidLuhn)
 	}
 
 	err := s.repo.Withdraw(ctx, userID, amount, orderNumber)

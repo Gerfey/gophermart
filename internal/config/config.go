@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"flag"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -31,25 +32,10 @@ func LoadConfig() (*Config, error) {
 	viper.BindEnv("ACCRUAL_SYSTEM_ADDRESS")
 	viper.BindEnv("JWT_SIGNING_KEY")
 
-	if cfg.RunAddress == "" {
-		if address := viper.GetString("RUN_ADDRESS"); address != "" {
-			cfg.RunAddress = address
-		} else {
-			cfg.RunAddress = ":8080"
-		}
-	}
-
-	if cfg.DatabaseURI == "" {
-		cfg.DatabaseURI = viper.GetString("DATABASE_URI")
-	}
-
-	if cfg.AccrualSystemAddress == "" {
-		cfg.AccrualSystemAddress = viper.GetString("ACCRUAL_SYSTEM_ADDRESS")
-	}
-
-	if cfg.JWTSigningKey == "" {
-		cfg.JWTSigningKey = viper.GetString("JWT_SIGNING_KEY")
-	}
+	cfg.RunAddress = cmp.Or(cfg.RunAddress, viper.GetString("RUN_ADDRESS"), ":8080")
+	cfg.DatabaseURI = cmp.Or(cfg.DatabaseURI, viper.GetString("DATABASE_URI"))
+	cfg.AccrualSystemAddress = cmp.Or(cfg.AccrualSystemAddress, viper.GetString("ACCRUAL_SYSTEM_ADDRESS"))
+	cfg.JWTSigningKey = cmp.Or(cfg.JWTSigningKey, viper.GetString("JWT_SIGNING_KEY"))
 
 	return cfg, nil
 }

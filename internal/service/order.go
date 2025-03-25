@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Gerfey/gophermart/internal/config"
+	"github.com/Gerfey/gophermart/internal/errors"
 	"github.com/Gerfey/gophermart/internal/model"
 	"github.com/Gerfey/gophermart/internal/repository"
 	log "github.com/sirupsen/logrus"
@@ -43,7 +45,7 @@ func NewOrderService(orderRepo repository.OrderRepository, balanceRepo repositor
 
 func (s *OrderSvc) CreateOrder(ctx context.Context, userID int64, number string) (int, error) {
 	if !isValidLuhnNumber(number) {
-		return ErrOrderNotValid, fmt.Errorf("номер заказа не соответствует алгоритму Луна")
+		return ErrOrderNotValid, fmt.Errorf("%w", errors.ErrInvalidLuhn)
 	}
 
 	existingOrder, err := s.orderRepo.GetOrderByNumber(ctx, number)
@@ -55,7 +57,7 @@ func (s *OrderSvc) CreateOrder(ctx context.Context, userID int64, number string)
 		if existingOrder.UserID == userID {
 			return ErrOrderCreated, nil
 		}
-		return ErrOrderRegisteredBy, fmt.Errorf("заказ уже зарегистрирован другим пользователем")
+		return ErrOrderRegisteredBy, fmt.Errorf("%w", errors.ErrOrderAlreadyExists)
 	}
 
 	_, err = s.orderRepo.CreateOrder(ctx, userID, number)
@@ -120,8 +122,15 @@ func (s *OrderSvc) processOrders(ctx context.Context) {
 }
 
 func (s *OrderSvc) checkOrderStatus(ctx context.Context, order *model.Order) {
-	url := fmt.Sprintf("%s/api/orders/%s", s.accrualSystemURL, order.Number)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	baseURL, err := url.Parse(s.accrualSystemURL)
+	if err != nil {
+		log.Errorf("Ошибка парсинга URL системы начислений: %s", err.Error())
+		return
+	}
+
+	baseURL.Path = fmt.Sprintf("/api/orders/%s", order.Number)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL.String(), nil)
 	if err != nil {
 		log.Errorf("Ошибка создания HTTP-запроса: %s", err.Error())
 		return

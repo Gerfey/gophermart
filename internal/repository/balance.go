@@ -2,9 +2,10 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
+	stderrors "errors"
+	"github.com/Gerfey/gophermart/internal/errors"
 	"github.com/Gerfey/gophermart/internal/model"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -33,8 +34,8 @@ func (r *BalanceRepo) GetBalance(ctx context.Context, userID int64) (*model.Bala
 	)
 
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("баланс пользователя не найден")
+		if stderrors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("%w", errors.ErrUserBalanceNotFound)
 		}
 		return nil, fmt.Errorf("ошибка получения баланса пользователя: %w", err)
 	}
@@ -64,31 +65,15 @@ func (r *BalanceRepo) AddAccrual(ctx context.Context, userID int64, amount float
 	}
 	defer tx.Rollback(ctx)
 
-	var exists bool
-	checkQuery := `
-		SELECT EXISTS(SELECT 1 FROM balances WHERE user_id = $1)
+	upsertQuery := `
+		INSERT INTO balances (user_id, current, withdrawn) 
+		VALUES ($1, $2, 0)
+		ON CONFLICT (user_id) DO UPDATE 
+		SET current = balances.current + $2
 	`
-	if err := tx.QueryRow(ctx, checkQuery, userID).Scan(&exists); err != nil {
-		return fmt.Errorf("ошибка проверки существования баланса: %w", err)
-	}
 
-	if !exists {
-		createQuery := `
-			INSERT INTO balances (user_id, current, withdrawn) 
-			VALUES ($1, $2, 0)
-		`
-		if _, err := tx.Exec(ctx, createQuery, userID, amount); err != nil {
-			return fmt.Errorf("ошибка создания записи баланса: %w", err)
-		}
-	} else {
-		updateQuery := `
-			UPDATE balances 
-			SET current = current + $1 
-			WHERE user_id = $2
-		`
-		if _, err := tx.Exec(ctx, updateQuery, amount, userID); err != nil {
-			return fmt.Errorf("ошибка обновления баланса: %w", err)
-		}
+	if _, err := tx.Exec(ctx, upsertQuery, userID, amount); err != nil {
+		return fmt.Errorf("ошибка обновления баланса: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -106,20 +91,22 @@ func (r *BalanceRepo) Withdraw(ctx context.Context, userID int64, amount float64
 	defer tx.Rollback(ctx)
 
 	var currentBalance float64
+	
 	balanceQuery := `
 		SELECT current 
 		FROM balances 
 		WHERE user_id = $1
+		FOR UPDATE
 	`
 	if err := tx.QueryRow(ctx, balanceQuery, userID).Scan(&currentBalance); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("баланс пользователя не найден")
+		if stderrors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w", errors.ErrUserBalanceNotFound)
 		}
 		return fmt.Errorf("ошибка получения текущего баланса: %w", err)
 	}
 
 	if currentBalance < amount {
-		return fmt.Errorf("недостаточно средств")
+		return fmt.Errorf("%w", errors.ErrInsufficientFunds)
 	}
 
 	updateBalanceQuery := `

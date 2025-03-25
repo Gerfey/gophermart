@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
+	customerrors "github.com/Gerfey/gophermart/internal/errors"
 	"github.com/Gerfey/gophermart/internal/model"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -51,10 +53,10 @@ func (h *Handler) withdrawFromBalance(c *gin.Context) {
 	if err != nil {
 		log.Errorf("Ошибка списания баллов: %s", err.Error())
 
-		if err.Error() == "недостаточно средств" {
+		if errors.Is(err, customerrors.ErrInsufficientFunds) {
 			newErrorResponse(c, http.StatusPaymentRequired, err.Error())
 			return
-		} else if err.Error() == "номер заказа не соответствует алгоритму Луна" {
+		} else if errors.Is(err, customerrors.ErrInvalidLuhn) {
 			newErrorResponse(c, http.StatusUnprocessableEntity, err.Error())
 			return
 		}

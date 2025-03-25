@@ -7,6 +7,7 @@ import (
 	"github.com/Gerfey/gophermart/internal/repository"
 	"github.com/Gerfey/gophermart/internal/service"
 	log "github.com/sirupsen/logrus"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -39,7 +40,7 @@ func main() {
 	server := handler.NewServer(cfg.RunAddress, handlers.InitRoutes())
 
 	go func() {
-		if err := server.Run(); err != nil {
+		if err := server.Run(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Ошибка запуска HTTP-сервера: %s", err.Error())
 		}
 	}()
@@ -53,8 +54,6 @@ func main() {
 	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
 	<-quit
 
-	cancel()
-
 	log.Info("Shutting down server...")
 
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
@@ -63,6 +62,8 @@ func main() {
 	if err := server.Shutdown(ctx); err != nil {
 		log.Errorf("Ошибка при завершении работы сервера: %s", err.Error())
 	}
+
+	cancel()
 
 	db.Close()
 
