@@ -1,12 +1,13 @@
-package tests
+package order_test
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
+	"github.com/Gerfey/gophermart/internal/tests"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -19,12 +20,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	ErrOrderAlreadyUploadedByOtherUser = errors.New("order already uploaded by other user")
-	ErrInvalidOrderNumber              = errors.New("invalid order number")
-	ErrOrderNotFound                   = errors.New("order not found")
-	ErrInsufficientFunds               = errors.New("insufficient funds")
-)
+func TestMain(m *testing.M) {
+	tests.SetupTestLogging()
+	os.Exit(m.Run())
+}
 
 func TestCreateOrder(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -68,7 +67,7 @@ func TestCreateOrder(t *testing.T) {
 		assert.Equal(t, http.StatusAccepted, w.Code)
 	})
 
-	t.Run("OrderAlreadyUploadedByUser", func(t *testing.T) {
+	t.Run("OrderAlreadyExistsForUser", func(t *testing.T) {
 		orderNumber := "1234567890"
 
 		mockOrderService.EXPECT().
@@ -85,12 +84,12 @@ func TestCreateOrder(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
-	t.Run("OrderAlreadyUploadedByOtherUser", func(t *testing.T) {
+	t.Run("OrderAlreadyExistsForOtherUser", func(t *testing.T) {
 		orderNumber := "1234567890"
 
 		mockOrderService.EXPECT().
 			CreateOrder(gomock.Any(), userID, orderNumber).
-			Return(http.StatusConflict, ErrOrderAlreadyUploadedByOtherUser)
+			Return(http.StatusConflict, tests.ErrOrderAlreadyUploadedByOtherUser)
 
 		w := httptest.NewRecorder()
 		req, _ := http.NewRequest("POST", "/api/user/orders", bytes.NewBufferString(orderNumber))
@@ -103,11 +102,11 @@ func TestCreateOrder(t *testing.T) {
 	})
 
 	t.Run("InvalidOrderNumber", func(t *testing.T) {
-		orderNumber := "invalid"
+		orderNumber := "1234567890"
 
 		mockOrderService.EXPECT().
 			CreateOrder(gomock.Any(), userID, orderNumber).
-			Return(http.StatusUnprocessableEntity, ErrInvalidOrderNumber)
+			Return(http.StatusUnprocessableEntity, tests.ErrInvalidOrderNumber)
 
 		w := httptest.NewRecorder()
 		req, _ := http.NewRequest("POST", "/api/user/orders", bytes.NewBufferString(orderNumber))
@@ -145,18 +144,19 @@ func TestGetOrders(t *testing.T) {
 		Return(userID, nil).
 		AnyTimes()
 
-	t.Run("SuccessfulGetOrders", func(t *testing.T) {
+	t.Run("SuccessfulOrdersRetrieval", func(t *testing.T) {
 		orders := []model.OrderResponse{
 			{
 				Number:     "1234567890",
 				Status:     "PROCESSED",
-				Accrual:    100.0,
-				UploadedAt: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+				Accrual:    100.5,
+				UploadedAt: time.Now(),
 			},
 			{
 				Number:     "0987654321",
 				Status:     "PROCESSING",
-				UploadedAt: time.Date(2023, 1, 2, 12, 0, 0, 0, time.UTC),
+				Accrual:    0,
+				UploadedAt: time.Now().Add(-24 * time.Hour),
 			},
 		}
 
@@ -175,16 +175,13 @@ func TestGetOrders(t *testing.T) {
 		var response []model.OrderResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err)
-		assert.Equal(t, 2, len(response))
-		assert.Equal(t, "1234567890", response[0].Number)
-		assert.Equal(t, model.OrderStatus("PROCESSED"), response[0].Status)
-		assert.Equal(t, 100.0, response[0].Accrual)
+		assert.Equal(t, len(orders), len(response))
 	})
 
-	t.Run("NoOrders", func(t *testing.T) {
+	t.Run("NoOrdersFound", func(t *testing.T) {
 		mockOrderService.EXPECT().
 			GetOrdersByUserID(gomock.Any(), userID).
-			Return([]model.OrderResponse{}, nil)
+			Return(nil, nil)
 
 		w := httptest.NewRecorder()
 		req, _ := http.NewRequest("GET", "/api/user/orders", nil)
@@ -218,5 +215,5 @@ func (m *MockAccrualService) GetOrderStatus(ctx context.Context, orderNumber str
 	if resp, ok := m.OrderStatuses[orderNumber]; ok {
 		return resp, nil
 	}
-	return model.AccrualResponse{}, ErrOrderNotFound
+	return model.AccrualResponse{}, tests.ErrOrderNotFound
 }

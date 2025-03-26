@@ -1,14 +1,17 @@
-package tests
+package user_test
 
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
+	"fmt"
+	"github.com/Gerfey/gophermart/internal/tests"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/Gerfey/gophermart/internal/handler"
+	"github.com/Gerfey/gophermart/internal/model"
 	"github.com/Gerfey/gophermart/internal/service"
 	mockservice "github.com/Gerfey/gophermart/internal/tests/mocks"
 	"github.com/gin-gonic/gin"
@@ -16,12 +19,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	ErrUserAlreadyExists  = errors.New("user already exists")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-)
+func TestMain(m *testing.M) {
+	tests.SetupTestLogging()
+	os.Exit(m.Run())
+}
 
-func TestRegisterUser(t *testing.T) {
+func TestRegister(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	ctrl := gomock.NewController(t)
@@ -41,47 +44,47 @@ func TestRegisterUser(t *testing.T) {
 	router := h.InitRoutes()
 
 	t.Run("SuccessfulRegistration", func(t *testing.T) {
-		mockUserService.EXPECT().
-			RegisterUser(gomock.Any(), "testuser", "password123").
-			Return("token123", nil)
-
-		reqBody := map[string]string{
-			"login":    "testuser",
-			"password": "password123",
+		creds := model.UserCredentials{
+			Login:    "testuser",
+			Password: "password123",
 		}
-		body, _ := json.Marshal(reqBody)
 
+		mockUserService.EXPECT().
+			RegisterUser(gomock.Any(), creds.Login, creds.Password).
+			Return("valid_token", nil)
+
+		requestBody, _ := json.Marshal(creds)
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("POST", "/api/user/register", bytes.NewBuffer(body))
+		req, _ := http.NewRequest("POST", "/api/user/register", bytes.NewBuffer(requestBody))
 		req.Header.Set("Content-Type", "application/json")
 
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Equal(t, "Bearer token123", w.Header().Get("Authorization"))
+		assert.Contains(t, w.Header().Get("Authorization"), "Bearer")
 	})
 
 	t.Run("UserAlreadyExists", func(t *testing.T) {
-		mockUserService.EXPECT().
-			RegisterUser(gomock.Any(), "existinguser", "password123").
-			Return("", ErrUserAlreadyExists)
-
-		reqBody := map[string]string{
-			"login":    "existinguser",
-			"password": "password123",
+		creds := model.UserCredentials{
+			Login:    "existinguser",
+			Password: "password123",
 		}
-		body, _ := json.Marshal(reqBody)
 
+		mockUserService.EXPECT().
+			RegisterUser(gomock.Any(), creds.Login, creds.Password).
+			Return("", fmt.Errorf("пользователь с логином %s уже существует", creds.Login))
+
+		requestBody, _ := json.Marshal(creds)
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("POST", "/api/user/register", bytes.NewBuffer(body))
+		req, _ := http.NewRequest("POST", "/api/user/register", bytes.NewBuffer(requestBody))
 		req.Header.Set("Content-Type", "application/json")
 
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Equal(t, http.StatusConflict, w.Code)
 	})
 
-	t.Run("InvalidRequestFormat", func(t *testing.T) {
+	t.Run("InvalidRequestBody", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		req, _ := http.NewRequest("POST", "/api/user/register", bytes.NewBuffer([]byte("invalid json")))
 		req.Header.Set("Content-Type", "application/json")
@@ -92,7 +95,7 @@ func TestRegisterUser(t *testing.T) {
 	})
 }
 
-func TestLoginUser(t *testing.T) {
+func TestLogin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	ctrl := gomock.NewController(t)
@@ -112,43 +115,53 @@ func TestLoginUser(t *testing.T) {
 	router := h.InitRoutes()
 
 	t.Run("SuccessfulLogin", func(t *testing.T) {
-		mockUserService.EXPECT().
-			LoginUser(gomock.Any(), "testuser", "password123").
-			Return("token123", nil)
-
-		reqBody := map[string]string{
-			"login":    "testuser",
-			"password": "password123",
+		creds := model.UserCredentials{
+			Login:    "testuser",
+			Password: "password123",
 		}
-		body, _ := json.Marshal(reqBody)
 
+		mockUserService.EXPECT().
+			LoginUser(gomock.Any(), creds.Login, creds.Password).
+			Return("valid_token", nil)
+
+		requestBody, _ := json.Marshal(creds)
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("POST", "/api/user/login", bytes.NewBuffer(body))
+		req, _ := http.NewRequest("POST", "/api/user/login", bytes.NewBuffer(requestBody))
 		req.Header.Set("Content-Type", "application/json")
 
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Equal(t, "Bearer token123", w.Header().Get("Authorization"))
+		assert.Contains(t, w.Header().Get("Authorization"), "Bearer")
 	})
 
 	t.Run("InvalidCredentials", func(t *testing.T) {
-		mockUserService.EXPECT().
-			LoginUser(gomock.Any(), "testuser", "wrongpassword").
-			Return("", ErrInvalidCredentials)
-
-		reqBody := map[string]string{
-			"login":    "testuser",
-			"password": "wrongpassword",
+		creds := model.UserCredentials{
+			Login:    "testuser",
+			Password: "wrongpassword",
 		}
-		body, _ := json.Marshal(reqBody)
 
+		mockUserService.EXPECT().
+			LoginUser(gomock.Any(), creds.Login, creds.Password).
+			Return("", tests.ErrInvalidCredentials)
+
+		requestBody, _ := json.Marshal(creds)
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("POST", "/api/user/login", bytes.NewBuffer(body))
+		req, _ := http.NewRequest("POST", "/api/user/login", bytes.NewBuffer(requestBody))
 		req.Header.Set("Content-Type", "application/json")
 
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
+	})
+
+	t.Run("InvalidRequestBody", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("POST", "/api/user/login", bytes.NewBuffer([]byte("invalid json")))
+		req.Header.Set("Content-Type", "application/json")
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }

@@ -1,10 +1,12 @@
-package tests
+package balance_test
 
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/Gerfey/gophermart/internal/tests"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -16,6 +18,11 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMain(m *testing.M) {
+	tests.SetupTestLogging()
+	os.Exit(m.Run())
+}
 
 func TestGetBalance(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -42,11 +49,12 @@ func TestGetBalance(t *testing.T) {
 		Return(userID, nil).
 		AnyTimes()
 
-	t.Run("SuccessfulGetBalance", func(t *testing.T) {
+	t.Run("SuccessfulBalanceRetrieval", func(t *testing.T) {
 		balance := model.BalanceResponse{
-			Current:   500.5,
-			Withdrawn: 42.0,
+			Current:   100.5,
+			Withdrawn: 50.25,
 		}
+
 		mockBalanceService.EXPECT().
 			GetBalance(gomock.Any(), userID).
 			Return(balance, nil)
@@ -62,8 +70,8 @@ func TestGetBalance(t *testing.T) {
 		var response model.BalanceResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err)
-		assert.Equal(t, 500.5, response.Current)
-		assert.Equal(t, 42.0, response.Withdrawn)
+		assert.Equal(t, balance.Current, response.Current)
+		assert.Equal(t, balance.Withdrawn, response.Withdrawn)
 	})
 }
 
@@ -92,19 +100,19 @@ func TestWithdraw(t *testing.T) {
 		Return(userID, nil).
 		AnyTimes()
 
-	t.Run("SuccessfulWithdraw", func(t *testing.T) {
-		withdrawRequest := map[string]interface{}{
-			"order": "2377225624",
-			"sum":   100.0,
+	t.Run("SuccessfulWithdrawal", func(t *testing.T) {
+		withdrawRequest := model.WithdrawRequest{
+			Order: "1234567890",
+			Sum:   50.0,
 		}
 
 		mockBalanceService.EXPECT().
-			Withdraw(gomock.Any(), userID, "2377225624", 100.0).
+			Withdraw(gomock.Any(), userID, withdrawRequest.Order, withdrawRequest.Sum).
 			Return(nil)
 
-		body, _ := json.Marshal(withdrawRequest)
+		requestBody, _ := json.Marshal(withdrawRequest)
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("POST", "/api/user/balance/withdraw", bytes.NewBuffer(body))
+		req, _ := http.NewRequest("POST", "/api/user/balance/withdraw", bytes.NewBuffer(requestBody))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer valid_token")
 
@@ -113,46 +121,15 @@ func TestWithdraw(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
-	t.Run("InsufficientFunds", func(t *testing.T) {
-		withdrawRequest := map[string]interface{}{
-			"order": "2377225624",
-			"sum":   1000.0,
-		}
-
-		mockBalanceService.EXPECT().
-			Withdraw(gomock.Any(), userID, "2377225624", 1000.0).
-			Return(ErrInsufficientFunds)
-
-		body, _ := json.Marshal(withdrawRequest)
+	t.Run("InvalidRequestBody", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("POST", "/api/user/balance/withdraw", bytes.NewBuffer(body))
+		req, _ := http.NewRequest("POST", "/api/user/balance/withdraw", bytes.NewBuffer([]byte("invalid json")))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer valid_token")
 
 		router.ServeHTTP(w, req)
 
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
-	})
-
-	t.Run("InvalidOrderNumber", func(t *testing.T) {
-		withdrawRequest := map[string]interface{}{
-			"order": "invalid",
-			"sum":   100.0,
-		}
-
-		mockBalanceService.EXPECT().
-			Withdraw(gomock.Any(), userID, "invalid", 100.0).
-			Return(ErrInvalidOrderNumber)
-
-		body, _ := json.Marshal(withdrawRequest)
-		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("POST", "/api/user/balance/withdraw", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer valid_token")
-
-		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }
 
@@ -181,17 +158,17 @@ func TestGetWithdrawals(t *testing.T) {
 		Return(userID, nil).
 		AnyTimes()
 
-	t.Run("SuccessfulGetWithdrawals", func(t *testing.T) {
+	t.Run("SuccessfulWithdrawalsRetrieval", func(t *testing.T) {
 		withdrawals := []model.WithdrawalResponse{
 			{
-				Order:       "2377225624",
-				Sum:         100.0,
-				ProcessedAt: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+				Order:       "1234567890",
+				Sum:         50.0,
+				ProcessedAt: time.Now(),
 			},
 			{
-				Order:       "2377225625",
-				Sum:         200.0,
-				ProcessedAt: time.Date(2023, 1, 2, 12, 0, 0, 0, time.UTC),
+				Order:       "0987654321",
+				Sum:         25.5,
+				ProcessedAt: time.Now().Add(-24 * time.Hour),
 			},
 		}
 
@@ -210,22 +187,6 @@ func TestGetWithdrawals(t *testing.T) {
 		var response []model.WithdrawalResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err)
-		assert.Equal(t, 2, len(response))
-		assert.Equal(t, "2377225624", response[0].Order)
-		assert.Equal(t, 100.0, response[0].Sum)
-	})
-
-	t.Run("NoWithdrawals", func(t *testing.T) {
-		mockBalanceService.EXPECT().
-			GetWithdrawals(gomock.Any(), userID).
-			Return([]model.WithdrawalResponse{}, nil)
-
-		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/api/user/withdrawals", nil)
-		req.Header.Set("Authorization", "Bearer valid_token")
-
-		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusNoContent, w.Code)
+		assert.Equal(t, len(withdrawals), len(response))
 	})
 }

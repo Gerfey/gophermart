@@ -1,11 +1,14 @@
-package tests
+package integration
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/Gerfey/gophermart/internal/tests"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -17,6 +20,40 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
+
+var (
+	ErrOrderNotFound = errors.New("заказ не найден")
+)
+
+func TestMain(m *testing.M) {
+	tests.SetupTestLogging()
+	os.Exit(m.Run())
+}
+
+type MockAccrualService struct {
+	OrderStatuses map[string]model.AccrualResponse
+}
+
+func NewMockAccrualService() *MockAccrualService {
+	return &MockAccrualService{
+		OrderStatuses: make(map[string]model.AccrualResponse),
+	}
+}
+
+func (m *MockAccrualService) SetOrderStatus(orderNumber string, status model.AccrualSystemStatus, accrual float64) {
+	m.OrderStatuses[orderNumber] = model.AccrualResponse{
+		Order:   orderNumber,
+		Status:  status,
+		Accrual: accrual,
+	}
+}
+
+func (m *MockAccrualService) GetOrderStatus(ctx context.Context, orderNumber string) (model.AccrualResponse, error) {
+	if resp, ok := m.OrderStatuses[orderNumber]; ok {
+		return resp, nil
+	}
+	return model.AccrualResponse{}, ErrOrderNotFound
+}
 
 type TestOrderProcessor struct {
 	accrualService *MockAccrualService
@@ -65,7 +102,7 @@ func TestAccrualIntegration(t *testing.T) {
 	accrualService := NewMockAccrualService()
 	processor := NewTestOrderProcessor(accrualService, mockOrderService)
 
-	t.Run("FullOrderProcessingCycle", func(t *testing.T) {
+	t.Run("ПолныйЦиклОбработкиЗаказа", func(t *testing.T) {
 		orderNumber := "1234567890"
 
 		mockOrderService.EXPECT().
