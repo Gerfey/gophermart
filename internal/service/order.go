@@ -194,7 +194,24 @@ func (s *OrderSvc) checkOrderStatus(ctx context.Context, order *model.Order) {
 			seconds, err := strconv.Atoi(retryAfter)
 			if err == nil {
 				log.Warnf("Превышен лимит запросов, повторная попытка через %d секунд", seconds)
+
+				retryTimer := time.NewTimer(time.Duration(seconds) * time.Second)
+				go func() {
+					defer retryTimer.Stop()
+
+					select {
+					case <-ctx.Done():
+						return
+					case <-retryTimer.C:
+						log.Infof("Повторная попытка проверки статуса заказа %s после ожидания", order.Number)
+						s.checkOrderStatus(ctx, order)
+					}
+				}()
+			} else {
+				log.Warnf("Не удалось распарсить заголовок Retry-After: %s", err.Error())
 			}
+		} else {
+			log.Warn("Получен статус TooManyRequests без заголовка Retry-After")
 		}
 	default:
 		log.Errorf("Неожиданный ответ от системы начислений: %d", resp.StatusCode)
