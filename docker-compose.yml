@@ -1,0 +1,40 @@
+services:
+  gophermart:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gophermart_service
+    depends_on:
+      - postgres
+    environment:
+      - RUN_ADDRESS=:8080
+      - DATABASE_URI=postgres://postgres:postgres@postgres:5432/gophermart?sslmode=disable
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    networks:
+      - gophermart_network
+
+  postgres:
+    image: postgres:14-alpine
+    container_name: gophermart_postgres
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=gophermart
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - gophermart_network
+
+volumes:
+  postgres_data:
+    name: gophermart_postgres_data
+
+networks:
+  gophermart_network:
+    name: gophermart_network
+    driver: bridge
