@@ -8,6 +8,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// registerUser обрабатывает запрос на регистрацию нового пользователя.
+// Принимает JSON с логином и паролем, создает нового пользователя и возвращает JWT токен.
+// Метод доступен по пути POST /api/user/register
+//
+// Коды ответов:
+//   - 200 OK: пользователь успешно зарегистрирован, в заголовке Authorization возвращается токен
+//   - 400 Bad Request: неверный формат запроса или пустые логин/пароль
+//   - 409 Conflict: пользователь с таким логином уже существует
+//   - 500 Internal Server Error: внутренняя ошибка сервера
 func (h *Handler) registerUser(c *gin.Context) {
 	var input model.UserCredentials
 
@@ -39,6 +48,15 @@ func (h *Handler) registerUser(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+// loginUser обрабатывает запрос на аутентификацию пользователя.
+// Принимает JSON с логином и паролем, проверяет учетные данные и возвращает JWT токен.
+// Метод доступен по пути POST /api/user/login
+//
+// Коды ответов:
+//   - 200 OK: аутентификация успешна, в заголовке Authorization возвращается токен
+//   - 400 Bad Request: неверный формат запроса или пустые логин/пароль
+//   - 401 Unauthorized: неверный логин или пароль
+//   - 500 Internal Server Error: внутренняя ошибка сервера
 func (h *Handler) loginUser(c *gin.Context) {
 	var input model.UserCredentials
 
