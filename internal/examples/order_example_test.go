@@ -16,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func ExampleCreateOrder() {
+func Example_createOrder() {
 	gin.SetMode(gin.ReleaseMode)
 	
 	cfg := &config.Config{
@@ -78,7 +78,7 @@ func ExampleCreateOrder() {
 	// Код ответа при невалидном номере заказа: 422
 }
 
-func ExampleGetOrders() {
+func Example_getOrders() {
 	gin.SetMode(gin.ReleaseMode)
 	
 	cfg := &config.Config{

@@ -15,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func ExampleRegisterUser() {
+func Example_registerUser() {
 	gin.SetMode(gin.ReleaseMode)
 	
 	cfg := &config.Config{
@@ -56,7 +56,7 @@ func ExampleRegisterUser() {
 	// Код ответа при повторной регистрации: 400
 }
 
-func ExampleLoginUser() {
+func Example_loginUser() {
 	gin.SetMode(gin.ReleaseMode)
 	
 	cfg := &config.Config{

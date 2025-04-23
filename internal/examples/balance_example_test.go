@@ -17,7 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func ExampleGetBalance() {
+func Example_getBalance() {
 	gin.SetMode(gin.ReleaseMode)
 	
 	cfg := &config.Config{
@@ -91,7 +91,7 @@ func ExampleGetBalance() {
 	// Баланс после начисления: 500.00
 }
 
-func ExampleWithdrawFromBalance() {
+func Example_withdrawFromBalance() {
 	gin.SetMode(gin.ReleaseMode)
 	
 	cfg := &config.Config{
@@ -173,7 +173,7 @@ func ExampleWithdrawFromBalance() {
 	// Код ответа при недостаточном балансе: 402
 }
 
-func ExampleGetWithdrawals() {
+func Example_getWithdrawals() {
 	gin.SetMode(gin.ReleaseMode)
 	
 	cfg := &config.Config{
