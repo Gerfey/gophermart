@@ -91,7 +91,7 @@ func (r *BalanceRepo) Withdraw(ctx context.Context, userID int64, amount float64
 	defer tx.Rollback(ctx)
 
 	var currentBalance float64
-	
+
 	balanceQuery := `
 		SELECT current 
 		FROM balances 
