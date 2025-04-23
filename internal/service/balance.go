@@ -34,7 +34,7 @@ func (s *BalanceSvc) GetBalance(ctx context.Context, userID int64) (model.Balanc
 }
 
 func (s *BalanceSvc) Withdraw(ctx context.Context, userID int64, orderNumber string, amount float64) error {
-	if !isValidLuhnNumber(orderNumber) {
+	if !IsValidLuhnNumber(orderNumber) {
 		return fmt.Errorf("%w", errors.ErrInvalidLuhn)
 	}
 
