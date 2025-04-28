@@ -44,7 +44,7 @@ func NewOrderService(orderRepo repository.OrderRepository, balanceRepo repositor
 }
 
 func (s *OrderSvc) CreateOrder(ctx context.Context, userID int64, number string) (int, error) {
-	if !isValidLuhnNumber(number) {
+	if !IsValidLuhnNumber(number) {
 		return ErrOrderNotValid, fmt.Errorf("%w", errors.ErrInvalidLuhn)
 	}
 
@@ -218,7 +218,7 @@ func (s *OrderSvc) checkOrderStatus(ctx context.Context, order *model.Order) {
 	}
 }
 
-func isValidLuhnNumber(number string) bool {
+func IsValidLuhnNumber(number string) bool {
 	number = strings.TrimSpace(number)
 
 	for _, c := range number {
@@ -227,21 +227,18 @@ func isValidLuhnNumber(number string) bool {
 		}
 	}
 
-	var sum int
-	var alternate bool
+	sum := 0
+	parity := len(number) % 2
 
-	for i := len(number) - 1; i >= 0; i-- {
-		digit := int(number[i] - '0')
-
-		if alternate {
+	for i, c := range number {
+		digit := int(c - '0')
+		if i%2 == parity {
 			digit *= 2
 			if digit > 9 {
-				digit = digit - 9
+				digit -= 9
 			}
 		}
-
 		sum += digit
-		alternate = !alternate
 	}
 
 	return sum%10 == 0
