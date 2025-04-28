@@ -47,7 +47,7 @@ func BenchmarkIsValidLuhnNumberAlternative(b *testing.B) {
 
 func BenchmarkLuhnValidationLargeDataset(b *testing.B) {
 	testNumbers := generateTestNumbers(1000)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < 100; j++ {
@@ -58,7 +58,7 @@ func BenchmarkLuhnValidationLargeDataset(b *testing.B) {
 
 func BenchmarkLuhnValidationOptimizedLargeDataset(b *testing.B) {
 	testNumbers := generateTestNumbers(1000)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < 100; j++ {

@@ -11,6 +11,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// getBalance возвращает текущий баланс пользователя.
+// Метод доступен по пути GET /api/user/balance
+//
+// Коды ответов:
+//   - 200 OK: возвращает информацию о балансе в формате JSON (текущий баланс и сумма списаний)
+//   - 401 Unauthorized: пользователь не аутентифицирован
+//   - 500 Internal Server Error: внутренняя ошибка сервера
 func (h *Handler) getBalance(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -29,6 +36,17 @@ func (h *Handler) getBalance(c *gin.Context) {
 	c.JSON(http.StatusOK, balance)
 }
 
+// withdrawFromBalance обрабатывает запрос на списание средств с баланса пользователя.
+// Принимает JSON с номером заказа и суммой для списания, проверяет валидность номера по алгоритму Луна
+// и достаточность средств на балансе. Метод доступен по пути POST /api/user/balance/withdraw
+//
+// Коды ответов:
+//   - 200 OK: средства успешно списаны
+//   - 400 Bad Request: неверный формат запроса или некорректные данные
+//   - 401 Unauthorized: пользователь не аутентифицирован
+//   - 402 Payment Required: недостаточно средств на балансе
+//   - 422 Unprocessable Entity: номер заказа не соответствует алгоритму Луна
+//   - 500 Internal Server Error: внутренняя ошибка сервера
 func (h *Handler) withdrawFromBalance(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -68,6 +86,14 @@ func (h *Handler) withdrawFromBalance(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+// getWithdrawals возвращает историю списаний средств пользователя.
+// Метод доступен по пути GET /api/user/withdrawals
+//
+// Коды ответов:
+//   - 200 OK: возвращает список списаний в формате JSON
+//   - 204 No Content: у пользователя нет списаний
+//   - 401 Unauthorized: пользователь не аутентифицирован
+//   - 500 Internal Server Error: внутренняя ошибка сервера
 func (h *Handler) getWithdrawals(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {

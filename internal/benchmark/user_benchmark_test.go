@@ -61,7 +61,7 @@ func BenchmarkPasswordVerificationWithDifferentPasswords(b *testing.B) {
 	for _, pw := range passwords {
 		b.Run(pw, func(b *testing.B) {
 			hash, _ := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
-			
+
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_ = bcrypt.CompareHashAndPassword(hash, []byte(pw))
