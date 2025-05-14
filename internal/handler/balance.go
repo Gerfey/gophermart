@@ -56,8 +56,8 @@ func (h *Handler) withdrawFromBalance(c *gin.Context) {
 	}
 
 	var input model.WithdrawRequest
-	if err := c.ShouldBindJSON(&input); err != nil {
-		log.Errorf("Ошибка разбора запроса на списание: %s", err.Error())
+	if bindErr := c.ShouldBindJSON(&input); bindErr != nil {
+		log.Errorf("Ошибка разбора запроса на списание: %s", bindErr.Error())
 		newErrorResponse(c, http.StatusBadRequest, "неверный формат запроса")
 		return
 	}

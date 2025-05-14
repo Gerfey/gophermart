@@ -142,7 +142,9 @@ func (s *OrderSvc) checkOrderStatus(ctx context.Context, order *model.Order) {
 		log.Errorf("Ошибка выполнения HTTP-запроса к системе начислений: %s", err.Error())
 		return
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	switch resp.StatusCode {
 	case http.StatusOK:
