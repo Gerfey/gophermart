@@ -3,6 +3,7 @@ package config
 import (
 	"cmp"
 	"flag"
+	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -27,10 +28,18 @@ func LoadConfig() (*Config, error) {
 
 	viper.AutomaticEnv()
 
-	viper.BindEnv("RUN_ADDRESS")
-	viper.BindEnv("DATABASE_URI")
-	viper.BindEnv("ACCRUAL_SYSTEM_ADDRESS")
-	viper.BindEnv("JWT_SIGNING_KEY")
+	if err := viper.BindEnv("RUN_ADDRESS"); err != nil {
+		return nil, fmt.Errorf("ошибка привязки переменной окружения RUN_ADDRESS: %w", err)
+	}
+	if err := viper.BindEnv("DATABASE_URI"); err != nil {
+		return nil, fmt.Errorf("ошибка привязки переменной окружения DATABASE_URI: %w", err)
+	}
+	if err := viper.BindEnv("ACCRUAL_SYSTEM_ADDRESS"); err != nil {
+		return nil, fmt.Errorf("ошибка привязки переменной окружения ACCRUAL_SYSTEM_ADDRESS: %w", err)
+	}
+	if err := viper.BindEnv("JWT_SIGNING_KEY"); err != nil {
+		return nil, fmt.Errorf("ошибка привязки переменной окружения JWT_SIGNING_KEY: %w", err)
+	}
 
 	cfg.RunAddress = cmp.Or(cfg.RunAddress, viper.GetString("RUN_ADDRESS"), ":8080")
 	cfg.DatabaseURI = cmp.Or(cfg.DatabaseURI, viper.GetString("DATABASE_URI"))

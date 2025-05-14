@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	stderrors "errors"
+
 	"github.com/Gerfey/gophermart/internal/errors"
 	"github.com/Gerfey/gophermart/internal/model"
 	"github.com/jackc/pgx/v5"
@@ -63,7 +64,9 @@ func (r *BalanceRepo) AddAccrual(ctx context.Context, userID int64, amount float
 	if err != nil {
 		return fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func(tx pgx.Tx, ctx context.Context) {
+		_ = tx.Rollback(ctx)
+	}(tx, ctx)
 
 	upsertQuery := `
 		INSERT INTO balances (user_id, current, withdrawn) 
@@ -88,7 +91,9 @@ func (r *BalanceRepo) Withdraw(ctx context.Context, userID int64, amount float64
 	if err != nil {
 		return fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func(tx pgx.Tx, ctx context.Context) {
+		_ = tx.Rollback(ctx)
+	}(tx, ctx)
 
 	var currentBalance float64
 
