@@ -143,7 +143,10 @@ func (s *OrderSvc) checkOrderStatus(ctx context.Context, order *model.Order) {
 		return
 	}
 	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
+		err := Body.Close()
+		if err != nil {
+			log.Errorf("Ошибка при закрытии тела ответа: %s", err.Error())
+		}
 	}(resp.Body)
 
 	switch resp.StatusCode {
