@@ -142,12 +142,14 @@ func (s *OrderSvc) checkOrderStatus(ctx context.Context, order *model.Order) {
 		log.Errorf("Ошибка выполнения HTTP-запроса к системе начислений: %s", err.Error())
 		return
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Errorf("Ошибка при закрытии тела ответа: %s", err.Error())
+
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				log.Errorf("Ошибка при закрытии тела ответа: %s", closeErr.Error())
+			}
 		}
-	}(resp.Body)
+	}()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
