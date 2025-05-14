@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/Gerfey/gophermart/internal/config"
 	"github.com/Gerfey/gophermart/internal/handler"
 	"github.com/Gerfey/gophermart/internal/repository"
@@ -15,20 +16,26 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Error(err)
+	}
+}
+
+func run() error {
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.InfoLevel)
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Ошибка загрузки конфигурации: %s", err.Error())
+		return fmt.Errorf("ошибка загрузки конфигурации: %w", err)
 	}
 
 	log.Info(cfg.AccrualSystemAddress)
 
 	db, err := repository.NewPostgresDB(cfg.DatabaseURI)
 	if err != nil {
-		log.Fatalf("Ошибка подключения к базе данных: %s", err.Error())
+		return fmt.Errorf("ошибка подключения к базе данных: %w", err)
 	}
 
 	repos := repository.NewRepository(db)
@@ -39,9 +46,10 @@ func main() {
 
 	server := handler.NewServer(cfg.RunAddress, handlers.InitRoutes())
 
+	errCh := make(chan error, 1)
 	go func() {
 		if err := server.Run(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Ошибка запуска HTTP-сервера: %s", err.Error())
+			errCh <- fmt.Errorf("ошибка запуска HTTP-сервера: %w", err)
 		}
 	}()
 
@@ -53,7 +61,14 @@ func main() {
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
-	<-quit
+	
+	select {
+	case <-quit:
+		log.Info("Получен сигнал завершения")
+	case err := <-errCh:
+		cancel()
+		return err
+	}
 
 	log.Info("Начинаем остановку сервера")
 
@@ -69,4 +84,5 @@ func main() {
 	db.Close()
 
 	log.Info("Сервер остановлен")
+	return nil
 }

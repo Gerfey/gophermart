@@ -67,7 +67,7 @@ func BenchmarkBalanceAddAccrual(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		balance.AddAccrual(10.0)
+		_ = balance.AddAccrual(10.0)
 	}
 }
 
@@ -76,7 +76,7 @@ func BenchmarkBalanceWithdraw(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		balance.Withdraw(1.0)
+		_ = balance.Withdraw(1.0)
 	}
 }
 
@@ -86,9 +86,9 @@ func BenchmarkBalanceConcurrentOperations(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			balance.GetBalance()
-			balance.AddAccrual(1.0)
+			_ = balance.AddAccrual(1.0)
 			balance.GetBalance()
-			balance.Withdraw(0.5)
+			_ = balance.Withdraw(0.5)
 		}
 	})
 }
